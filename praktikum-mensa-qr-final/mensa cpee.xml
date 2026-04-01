@@ -1,0 +1,442 @@
+<testset xmlns="http://cpee.org/ns/properties/2.0">
+  <executionhandler>ruby</executionhandler>
+  <dataelements>
+    <last_update_raw>{"state":"menu","action":"show-menu","canteen":"arcis"}</last_update_raw>
+    <qid>simple</qid>
+    <state>menu</state>
+    <selected_canteen>arcis</selected_canteen>
+    <event/>
+  </dataelements>
+  <endpoints>
+    <timeout>https://cpee.org/services/timeout.php</timeout>
+    <subprocess>https://cpee.org/flow/start/url/</subprocess>
+    <init>https-post://cpee.org/out/frames/</init>
+    <display>https-put://cpee.org/out/frames/</display>
+  </endpoints>
+  <attributes>
+    <guarded>none</guarded>
+    <modeltype>CPEE</modeltype>
+    <theme>extended</theme>
+    <guarded_id/>
+    <info>mensa1</info>
+    <creator>Christine Ashcreek</creator>
+    <author>Christine Ashcreek</author>
+    <model_uuid>258091b2-0c5a-421e-9044-de48ebe781d6</model_uuid>
+    <model_version/>
+    <design_stage>development</design_stage>
+    <design_dir>Teaching.dir/Prak.dir/TUM-Prak-25-WS.dir/ShiDinghao.dir</design_dir>
+    <uidev>dinghao</uidev>
+    <framesid>alex</framesid>
+  </attributes>
+  <description>
+    <description xmlns="http://cpee.org/ns/description/1.0">
+      <call id="a1" endpoint="init">
+        <parameters>
+          <label>Init Frame</label>
+          <color/>
+          <arguments>
+            <style_url>https://cpee.org/form/frames.css</style_url>
+            <document_url/>
+            <x_amount>12</x_amount>
+            <y_amount>12</y_amount>
+            <lang>de-at</lang>
+            <document_name>My dev view</document_name>
+          </arguments>
+        </parameters>
+        <code>
+          <signal/>
+          <prepare>endpoints.init += attributes.uidev</prepare>
+          <finalize output="result"/>
+          <update output="result"/>
+          <rescue output="result"/>
+        </code>
+        <annotations>
+          <_generic/>
+          <_timing>
+            <_timing_weight/>
+            <_timing_avg/>
+            <explanations/>
+          </_timing>
+          <_shifting>
+            <_shifting_type>Duration</_shifting_type>
+          </_shifting>
+          <_context_data_analysis>
+            <probes/>
+            <ips/>
+          </_context_data_analysis>
+          <report>
+            <url/>
+          </report>
+          <_notes>
+            <_notes_general/>
+          </_notes>
+        </annotations>
+        <documentation>
+          <input/>
+          <output/>
+          <implementation>
+            <description/>
+          </implementation>
+          <code>
+            <description/>
+          </code>
+        </documentation>
+      </call>
+      <call id="a2" endpoint="display">
+        <parameters>
+          <label>clear</label>
+          <color/>
+          <arguments>
+            <type>set</type>
+            <lx>0</lx>
+            <ly>0</ly>
+            <x_amount>12</x_amount>
+            <y_amount>12</y_amount>
+            <button/>
+            <style/>
+            <urls/>
+            <default/>
+          </arguments>
+        </parameters>
+        <code>
+          <signal/>
+          <prepare>endpoints.display += attributes.uidev</prepare>
+          <finalize output="result"/>
+          <update output="result"/>
+          <rescue output="result"/>
+        </code>
+        <annotations>
+          <_generic/>
+          <_timing>
+            <_timing_weight/>
+            <_timing_avg/>
+            <explanations/>
+          </_timing>
+          <_shifting>
+            <_shifting_type>Duration</_shifting_type>
+          </_shifting>
+          <_context_data_analysis>
+            <probes/>
+            <ips/>
+          </_context_data_analysis>
+          <report>
+            <url/>
+          </report>
+          <_notes>
+            <_notes_general/>
+          </_notes>
+        </annotations>
+        <documentation>
+          <input/>
+          <output/>
+          <implementation>
+            <description/>
+          </implementation>
+          <code>
+            <description/>
+          </code>
+        </documentation>
+      </call>
+      <loop mode="post_test" condition="data.state != 'abort'">
+        <_probability>
+          <_probability_min/>
+          <_probability_max/>
+          <_probability_avg/>
+        </_probability>
+        <choose mode="exclusive" label="">
+          <alternative condition="data.state == 'intro'">
+            <_probability>
+              <_probability_min/>
+              <_probability_max/>
+              <_probability_avg/>
+            </_probability>
+            <call id="a6" endpoint="display">
+              <parameters>
+                <label>show main</label>
+                <color/>
+                <arguments>
+                  <type>wait</type>
+                  <lx>0</lx>
+                  <ly>0</ly>
+                  <x_amount>12</x_amount>
+                  <y_amount>12</y_amount>
+                  <button/>
+                  <style/>
+                  <urls>
+                    <urls_item>
+                      <lang>de-at</lang>
+                      <url>!"https://lehre.bpm.in.tum.de/~ge93fuw/qr/cpee-qr.html?view=" + data.state</url>
+                    </urls_item>
+                  </urls>
+                  <default/>
+                </arguments>
+              </parameters>
+              <code>
+                <signal/>
+                <prepare>endpoints.display += attributes.uidev</prepare>
+                <finalize output="result">cmd = {}
+begin
+  cmd = JSON.parse(result.to_s)
+rescue
+  cmd = {}
+end
+event = cmd['action']  || ''
+can   = cmd['canteen'] || data.selected_canteen
+st    = data.state || 'intro'
+data.last_update_raw = result.to_s
+
+case st
+when 'intro'
+  if event == 'show-list'
+    data.state = 'list'
+    data.selected_canteen = ''
+  elsif event == 'exit'
+    data.state = 'abort'
+    data.selected_canteen = ''
+  else
+    data.state = 'intro'
+  end
+else
+  data.state = 'intro'
+  data.selected_canteen = ''
+end
+data.event = ''</finalize>
+                <update output="result"/>
+                <rescue output="result"/>
+              </code>
+              <annotations>
+                <_generic/>
+                <_timing>
+                  <_timing_weight/>
+                  <_timing_avg/>
+                  <explanations/>
+                </_timing>
+                <_shifting>
+                  <_shifting_type>Duration</_shifting_type>
+                </_shifting>
+                <_context_data_analysis>
+                  <probes/>
+                  <ips/>
+                </_context_data_analysis>
+                <report>
+                  <url/>
+                </report>
+                <_notes>
+                  <_notes_general/>
+                </_notes>
+              </annotations>
+              <documentation>
+                <input/>
+                <output/>
+                <implementation>
+                  <description/>
+                </implementation>
+                <code>
+                  <description/>
+                </code>
+              </documentation>
+            </call>
+          </alternative>
+          <alternative condition="data.state == 'list'">
+            <_probability>
+              <_probability_min/>
+              <_probability_max/>
+              <_probability_avg/>
+            </_probability>
+            <call id="a7" endpoint="display">
+              <parameters>
+                <label>show list</label>
+                <color/>
+                <arguments>
+                  <type>wait</type>
+                  <lx>0</lx>
+                  <ly>0</ly>
+                  <x_amount>12</x_amount>
+                  <y_amount>12</y_amount>
+                  <button/>
+                  <style/>
+                  <urls>
+                    <urls_item>
+                      <lang>de-at</lang>
+                      <url>!"https://lehre.bpm.in.tum.de/~ge93fuw/qr/cpee-qr.html?view=" + data.state</url>
+                    </urls_item>
+                  </urls>
+                  <default/>
+                </arguments>
+              </parameters>
+              <code>
+                <signal/>
+                <prepare>endpoints.display += attributes.uidev</prepare>
+                <finalize output="result">cmd = {}
+begin
+  cmd = JSON.parse(result.to_s)
+rescue
+  cmd = {}
+end
+event = cmd['action']  || ''
+can   = cmd['canteen'] || data.selected_canteen
+st    = data.state || 'intro'
+data.last_update_raw = result.to_s
+case st
+when 'list'
+  if event == 'back-main'
+    data.state = 'intro'
+    data.selected_canteen = ''
+  elsif event == 'show-menu' &amp;&amp; !can.to_s.empty?
+    data.state = 'menu'
+    data.selected_canteen = can
+  elsif event == 'exit'
+    data.state = 'abort'
+    data.selected_canteen = ''
+  else
+    data.state = 'intro'
+    data.selected_canteen = ''
+  end
+else
+  data.state = 'intro'
+  data.selected_canteen = ''
+end
+data.event = ''</finalize>
+                <update output="result"/>
+                <rescue output="result"/>
+              </code>
+              <annotations>
+                <_generic/>
+                <_timing>
+                  <_timing_weight/>
+                  <_timing_avg/>
+                  <explanations/>
+                </_timing>
+                <_shifting>
+                  <_shifting_type>Duration</_shifting_type>
+                </_shifting>
+                <_context_data_analysis>
+                  <probes/>
+                  <ips/>
+                </_context_data_analysis>
+                <report>
+                  <url/>
+                </report>
+                <_notes>
+                  <_notes_general/>
+                </_notes>
+              </annotations>
+              <documentation>
+                <input/>
+                <output/>
+                <implementation>
+                  <description/>
+                </implementation>
+                <code>
+                  <description/>
+                </code>
+              </documentation>
+            </call>
+          </alternative>
+          <alternative condition="data.state == 'menu'">
+            <_probability>
+              <_probability_min/>
+              <_probability_max/>
+              <_probability_avg/>
+            </_probability>
+            <call id="a9" endpoint="display">
+              <parameters>
+                <label>show menu</label>
+                <color/>
+                <arguments>
+                  <type>wait</type>
+                  <lx>0</lx>
+                  <ly>0</ly>
+                  <x_amount>12</x_amount>
+                  <y_amount>12</y_amount>
+                  <button/>
+                  <style/>
+                  <urls>
+                    <urls_item>
+                      <lang>de-at</lang>
+                      <url>!"https://lehre.bpm.in.tum.de/~ge93fuw/qr/cpee-qr.html?view=menu&amp;canteen=" + data.selected_canteen</url>
+                    </urls_item>
+                  </urls>
+                  <default/>
+                </arguments>
+              </parameters>
+              <code>
+                <signal/>
+                <prepare>endpoints.display += attributes.uidev</prepare>
+                <finalize output="result">cmd = {}
+begin
+  cmd = JSON.parse(result.to_s)
+rescue
+  cmd = {}
+end
+event = cmd['action']  || ''
+can   = cmd['canteen'] || data.selected_canteen
+st    = data.state || 'intro'
+data.last_update_raw = result.to_s
+
+case st
+when 'menu'
+  if event == 'back-list'
+    data.state = 'list'
+  elsif event == 'back-main'
+    data.state = 'intro'
+    data.selected_canteen = ''
+  elsif event == 'exit'
+    data.state = 'abort'
+    data.selected_canteen = ''
+  else
+    data.state = 'intro'
+    data.selected_canteen = ''
+  end
+else
+  data.state = 'intro'
+  data.selected_canteen = ''
+end
+data.event = ''</finalize>
+                <update output="result"/>
+                <rescue output="result"/>
+              </code>
+              <annotations>
+                <_generic/>
+                <_timing>
+                  <_timing_weight/>
+                  <_timing_avg/>
+                  <explanations/>
+                </_timing>
+                <_shifting>
+                  <_shifting_type>Duration</_shifting_type>
+                </_shifting>
+                <_context_data_analysis>
+                  <probes/>
+                  <ips/>
+                </_context_data_analysis>
+                <report>
+                  <url/>
+                </report>
+                <_notes>
+                  <_notes_general/>
+                </_notes>
+              </annotations>
+              <documentation>
+                <input/>
+                <output/>
+                <implementation>
+                  <description/>
+                </implementation>
+                <code>
+                  <description/>
+                </code>
+              </documentation>
+            </call>
+          </alternative>
+          <otherwise/>
+        </choose>
+      </loop>
+    </description>
+  </description>
+  <transformation>
+    <description type="copy"/>
+    <dataelements type="none"/>
+    <endpoints type="none"/>
+  </transformation>
+</testset>

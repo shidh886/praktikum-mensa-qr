@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mensa Menu · QR Control</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="cpee-qr.css" rel="stylesheet">
+
+  
+  <script src="/js_libs/jquery.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+</head>
+<body>
+<div class="root-shell">
+  <div class="top-bar">
+    <div>
+      <div class="top-title" id="top-title">Mensa Display</div>
+      <div class="top-subtitle" id="top-subtitle">
+        Scan the QR code on your phone to control the display.
+      </div>
+    </div>
+    <div class="label-chip" id="top-chip">Idle</div>
+  </div>
+
+  
+  <div id="stage-container" class="center-stage">
+    
+  </div>
+
+  <div id="msg"></div>
+</div>
+
+<script>
+ 
+  function getParams() { 
+    const usp = new URLSearchParams(window.location.search); 
+    for (const [k, v] of usp.entries()) obj[k] = v; 
+    return obj; 
+  }
+
+  function showError(msg) { 
+    $("#msg").text(msg).show(); 
+  }
+
+  function makeSendUrl(commandObj, cb) { 
+    const info = encodeURIComponent(JSON.stringify(commandObj)); 
+    const cbEnc = encodeURIComponent(cb); 
+    return "https://lehre.bpm.in.tum.de/~ge93fuw/qr/send.php" 
+           + "?info=" + info 
+           + "&cb="   + cbEnc; 
+  }
+
+  function buildQrChip($container, title, cmdObj, cb) { 
+    const chip = $('<div class="qr-chip"></div>'); 
+    const inner = $('<div class="qr-inner"></div>'); 
+    const qrDiv = $('<div></div>'); 
+    inner.append(qrDiv); 
+    chip.append(inner); 
+    chip.append($('<div class="qr-caption"></div>').text(title)); 
+    $container.append(chip); 
+
+    const url = makeSendUrl(cmdObj, cb); 
+    new QRCode(qrDiv[0], { 
+      text: url, 
+      width: 120, 
+      height: 120, 
+      colorDark : "#000000", 
+      colorLight : "#ffffff", 
+      correctLevel : QRCode.CorrectLevel.L 
+    });
+  }
+
+
+  function getNiceCanteenName(id) { 
+    switch (id) { 
+      case "garching": return "Mensa Garching"; 
+      case "arcis":    return "Mensa Arcisstraße"; 
+      case "leopold":  return "Mensa Leopold"; 
+      case "Boltzmann": return "StuBistro Boltzmann"; 
+      default:         return id || "Mensa"; 
+    }
+  }
+
+  
+  function getCanteenInfo(id) { 
+    const map = { 
+      garching: { 
+        name: "Mensa Garching", 
+        address: "", 
+      },
+      arcis: { 
+        name: "Mensa Arcisstraße", 
+        address: "", 
+      },
+      leopold: {
+        name: "Mensa Leopold", 
+        address: "", 
+      },
+      Boltzmann: { 
+        name: "StuBistro Boltzmann", 
+        address: "", 
+      }
+    }; 
+    return map[id] || { name: getNiceCanteenName(id), address: "", hero: "" }; 
+  }
+
+  
+  function labelToEmoji(label) { 
+    const l = (label || "").toLowerCase(); 
+    if (l.includes("vegan")) return "🌱"; 
+    if (l.includes("vegetarian") || l.includes("veg")) return "🥕"; 
+    if (l.includes("fish")) return "🐟"; 
+    if (l.includes("bio")) return "🌾"; 
+    if (l.includes("lactose")) return "🥛"; 
+    if (l.includes("gluten")) return "🌾"; 
+    return ""; 
+
+  
+    }
+  function formatPrice(p) { 
+    if (!p) return ""; 
+    const unit = p.unit || "100g"; 
+    const base = Number(p.base_price || 0); 
+    const per = Number(p.price_per_unit || 0); 
+    if (base > 0 && per > 0) return `${base.toFixed(2)} € + ${per.toFixed(2)} € / ${unit}`; 
+    if (per > 0) return `${per.toFixed(2)} € / ${unit}`; 
+    if (base > 0) return `${base.toFixed(2)} €`; 
+    return p.text || ""; 
+  }
+
+  
+  function normalizePrices(item) { 
+    if (!item) return []; 
+    const p = item.prices; 
+    const normalized = []; 
+
+    if (Array.isArray(p) && p.length) { 
+      p.forEach(entry => { 
+        normalized.push({ 
+          label: entry.label || "Price", 
+          text: entry.text || formatPrice(entry) 
+        });
+      });
+      return normalized; 
+    }
+
+    if (p && typeof p === "object") { 
+      const order = [
+        { key: "students", label: "Students" }, 
+        { key: "staff", label: "Staff" }, 
+        { key: "employees", label: "Staff" }, 
+        { key: "guests", label: "Guests" }, 
+        { key: "guest", label: "Guests" } 
+      ];
+      order.forEach(({ key, label }) => { 
+        if (p[key] !== undefined && p[key] !== null) { 
+          normalized.push({ label, text: formatPrice(p[key]) }); 
+        }
+      });
+    }
+    return normalized; 
+  }
+
+  
+  function renderDishCards(menuData) { 
+    const $grid = $('<div class="menu-grid"></div>'); // 创建网格容器
+
+    if (!menuData || !menuData.items || menuData.items.length === 0) { // 没有菜单或菜单为空
+      $grid.append('<div style="grid-column: 1/-1; text-align:center; padding:28px; color: var(--text-muted);">No menu available (maybe weekend or holiday).</div>'); // 插入空状态提示
+      return $grid; 
+    }
+
+    menuData.items.forEach(item => { 
+      const card = $('<div class="dish-card"></div>'); 
+      const header = $('<div class="dish-header"></div>'); 
+      header.append($('<div class="dish-name"></div>').text(item.name || "")); 
+      if (item.type) { 
+        header.append($('<div class="dish-type"></div>').text(item.type)); 
+      }
+      card.append(header); 
+
+      if (item.labels && item.labels.length) { 
+        const labelsDiv = $('<div class="dish-labels"></div>'); 
+        item.labels.forEach(l => { 
+          const emoji = labelToEmoji(l); 
+          const pill = $('<span class="dish-label-pill"></span>'); 
+          if (emoji) pill.append($('<span></span>').text(emoji)); 
+          pill.append($('<span></span>').text(l)); 
+          labelsDiv.append(pill); 
+        });
+        card.append(labelsDiv); 
+      }
+
+      const priceList = $('<div class="price-list"></div>'); 
+      const prices = normalizePrices(item); 
+      if (!prices.length) {
+        priceList.append('<div class="price-pill"><span class="price-value">No price info</span></div>'); 
+      } else {
+        prices.forEach(p => { 
+          const pill = $('<div class="price-pill"></div>'); 
+          pill.append($('<span class="price-label"></span>').text((p.label || 'Price') + ':')); 
+          pill.append($('<span class="price-value"></span>').text(p.text || '—')); 
+          priceList.append(pill); 
+        });
+      }
+      card.append(priceList);
+
+      $grid.append(card); 
+    });
+
+    return $grid; 
+  }
+
+  
+  $(function() { 
+    const params = getParams(); 
+    const rawView = (params.view || "intro").toString(); 
+    let view = "intro"; 
+    if (rawView.indexOf("list") !== -1) {
+      view = "list"; 
+    } else if (rawView.indexOf("menu") !== -1) { 
+      view = "menu"; 
+    } else if (rawView.indexOf("intro") !== -1) { 
+      view = "intro"; 
+    } else {
+      view = rawView.split("?")[0].split("&")[0] || "intro"; 
+    }
+
+    const canteen = (params.canteen || "").toString(); 
+    const cb = (window.name || params.cb || "").toString(); 
+
+    const $stage = $("#stage-container"); 
+    const $topTitle = $("#top-title"); 
+    const $topSubtitle = $("#top-subtitle"); 
+    const $topChip = $("#top-chip"); 
+    $stage.empty(); 
+    $("#msg").hide(); 
+
+    if (!cb) { 
+      showError("No callback received from CPEE. For testing, set it manually via ?cb=<url>."); 
+    }
+
+    
+    if (view === "intro") { 
+      $stage.removeClass("menu-stage list-stage").addClass("center-stage"); 
+      $topTitle.text("Mensa Display Control"); 
+      $topSubtitle.text("Main menu: scan a QR code to open the canteen list on your phone."); 
+      $topChip.text("Stage · Intro"); 
+
+      const $card = $('<div class="stage-card"></div>'); 
+      $card.append('<div class="stage-label">WELCOME</div>'); 
+      $card.append('<div class="stage-heading">Welcome to Mensa Self-Service Navigation</div>'); 
+      $card.append('<div class="stage-desc">Scan a QR code below, choose a canteen on your phone, and control the display.</div>'); 
+
+      const $qrs = $('<div class="stage-qrs"></div>'); 
+      if (cb) { 
+        buildQrChip($qrs,
+          "View all canteens", 
+          { state: "list", action: "show-list", canteen: "" }, 
+          cb 
+        );
+      }
+      $card.append($qrs); 
+      $stage.append($card); 
+
+   
+    } else if (view === "list") { 
+      $stage.removeClass("menu-stage").addClass("center-stage list-stage");
+      $topTitle.text("Select a Mensa"); 
+      $topSubtitle.text("Canteen list: choose a canteen or return to the main menu."); 
+      $topChip.text("Stage · List"); 
+
+      const $card = $('<div class="stage-card"></div>');
+      $card.append('<div class="stage-label">CANTEENS</div>'); 
+      $card.append('<div class="stage-heading">Select a Mensa to view the menu</div>'); 
+      $card.append("<div class=\"stage-desc\">After scanning, your phone opens the control page and shows that canteen's menu on the display.</div>"); 
+
+      const $qrs = $('<div class="stage-qrs"></div>'); 
+      if (cb) { 
+        buildQrChip($qrs, 
+          "Back to main menu",
+          { state: "intro", action: "back-main", canteen: "" },
+          cb
+        );
+        buildQrChip($qrs, 
+          "Mensa Garching",
+          { state: "menu", action: "show-menu", canteen: "garching" },
+          cb
+        );
+        buildQrChip($qrs, 
+          "Mensa Arcisstraße",
+          { state: "menu", action: "show-menu", canteen: "arcis" },
+          cb
+        );
+         buildQrChip($qrs, 
+          "Mensa Leopold",
+          { state: "menu", action: "show-menu", canteen: "leopold" },
+          cb
+        );
+        buildQrChip($qrs, 
+          "StuBistro Boltzmann",
+          { state: "menu", action: "show-menu", canteen: "Boltzmann" },
+          cb
+        );
+        buildQrChip($qrs, 
+          "Exit display",
+          { state: "abort", action: "exit", canteen: "" },
+          cb
+        );
+      }
+      $card.append($qrs); 
+      $stage.append($card); 
+
+    
+    } else if (view === "menu") { 
+      $stage.removeClass("center-stage list-stage").addClass("menu-stage"); 
+      const info = getCanteenInfo(canteen); 
+      const niceName = info.name || getNiceCanteenName(canteen); 
+      $topTitle.text(niceName || "Mensa Menu");
+      $topSubtitle.text("Use your phone to control the display · QR codes return to list or main menu"); 
+      $topChip.text("Stage · Menu"); 
+
+      document.body.style.backgroundImage = 
+        `linear-gradient(145deg, rgba(5, 9, 18, 0.92), rgba(9, 16, 32, 0.88))`;
+
+      const $menuStage = $('<div class="menu-stage"></div>'); 
+      const $hero = $('<div class="menu-hero"></div>'); 
+      const $heroContent = $('<div class="menu-hero-content"></div>'); 
+      const $heroQrs = $('<div class="menu-hero-qrs"></div>'); 
+      $heroContent.append($('<div class="menu-heading-main"></div>').text((niceName || "Mensa") + " Menu")); 
+      $heroContent.append($('<div class="menu-heading-sub" id="menu-date-label">Menu loading…</div>')); 
+      $heroContent.append($('<div class="menu-heading-sub" id="menu-address"></div>').text("")); 
+      $hero.append($heroContent); 
+      $menuStage.append($hero); 
+
+      const $bottom = $('<div class="bottom-qrs"></div>'); 
+      if (cb) { 
+        buildQrChip($bottom, 
+          "Back to canteen list",
+          { state: "list", action: "back-list", canteen: canteen },
+          cb
+        );
+        buildQrChip($bottom, 
+          "Back to main menu",
+          { state: "intro", action: "back-main", canteen: "" },
+          cb
+        );
+      }
+      $heroQrs.append($bottom); 
+
+      const $scroll = $('<div class="menu-scroll"></div>'); 
+      const $gridWrapper = $('<div></div>'); 
+      $gridWrapper.append('<div class="menu-grid" id="menu-grid"></div>'); 
+      $scroll.append($gridWrapper); 
+      $menuStage.append($scroll); 
+
+      $stage.html($menuStage); 
+
+      const renderWithData = (data) => { 
+        if (data.error) { 
+          $("#menu-grid").empty(); 
+          $("#menu-grid").append('<div style="grid-column:1/-1;padding:16px;color:var(--text-muted);">No menu available (maybe weekend or holiday).</div>'); 
+        } else {
+          $("#menu-date-label").text("Menu for " + data.date); 
+          $("#menu-address").text(data.address || ""); 
+          const $cards = renderDishCards(data); 
+          $("#menu-grid").replaceWith($cards); 
+          $cards.attr("id","menu-grid"); 
+        }
+      };
+
+      if (canteen) { 
+        const apiUrl = 
+          "https://lehre.bpm.in.tum.de/ports/9002/api/menu?canteen=" +
+          encodeURIComponent(canteen);
+
+        fetch(apiUrl) 
+          .then(r => r.json()) 
+          .then(renderWithData) 
+          .catch(err => { 
+            console.error("menu fetch failed:", err); 
+          });
+      } else {
+        $("#menu-date-label").text("No canteen specified."); 
+        $("#menu-address").text(""); 
+        $("#menu-grid").append('<div style="grid-column:1/-1;padding:16px;color:var(--text-muted);">No canteen specified.</div>'); 
+      }
+
+      
+      (function autoScroll(){ 
+        const el = document.querySelector('.menu-scroll'); 
+        if (!el) return; 
+        let dir = 1; 
+        setInterval(() => { 
+          if (el.scrollHeight <= el.clientHeight + 4) return; 
+          el.scrollTop += dir * 1; 
+          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) dir = -1; 
+          if (el.scrollTop <= 0) dir = 1; 
+        }, 70); 
+      })();
+
+    } else {
+      showError("Unknown view parameter view='" + view + "', raw='" + rawView + "'."); 
+    }
+  });
+</script>
+</body>
+</html>
