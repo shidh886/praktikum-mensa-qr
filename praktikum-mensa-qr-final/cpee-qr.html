@@ -33,9 +33,11 @@
 </div>
 
 <script>
+  const APP_VERSION = "20260402-2";
  
   function getParams() { 
     const usp = new URLSearchParams(window.location.search); 
+    const obj = {};
     for (const [k, v] of usp.entries()) obj[k] = v; 
     return obj; 
   }
@@ -70,6 +72,100 @@
       colorLight : "#ffffff", 
       correctLevel : QRCode.CorrectLevel.L 
     });
+  }
+
+  function goToIntroLocally(cb) {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("view", "intro");
+    nextUrl.searchParams.set("v", APP_VERSION);
+    nextUrl.searchParams.delete("canteen");
+    if (cb) {
+      nextUrl.searchParams.set("cb", cb);
+    } else {
+      nextUrl.searchParams.delete("cb");
+    }
+    window.location.href = nextUrl.toString();
+  }
+
+  function syncBackMainToCpee(cb, view) {
+    if (!cb) return Promise.resolve();
+    const backMainCmd = {
+      state: view || "intro",
+      action: "back-main",
+      canteen: ""
+    };
+    const url = makeSendUrl(backMainCmd, cb);
+
+    
+    try {
+      const img = new Image();
+      img.src = url;
+    } catch (e) {}
+
+    return fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      keepalive: true
+    }).catch(() => {});
+  }
+
+  function mountTimeLeft(startTs, timeoutMs) {
+    const id = "time-left-chip";
+    const old = document.getElementById(id);
+    if (old) old.remove();
+
+    const chip = document.createElement("div");
+    chip.id = id;
+    chip.style.position = "fixed";
+    chip.style.right = "14px";
+    chip.style.bottom = "14px";
+    chip.style.zIndex = "9999";
+    chip.style.padding = "8px 10px";
+    chip.style.borderRadius = "10px";
+    chip.style.background = "rgba(2,6,23,0.82)";
+    chip.style.color = "#e2e8f0";
+    chip.style.font = "12px/1.3 monospace";
+    chip.style.border = "1px solid rgba(148,163,184,0.45)";
+    chip.style.boxShadow = "0 8px 18px rgba(0,0,0,0.28)";
+    document.body.appendChild(chip);
+
+    const tick = () => {
+      const elapsed = Date.now() - startTs;
+      const leftMs = Math.max(0, timeoutMs - elapsed);
+      const leftSec = Math.ceil(leftMs / 1000);
+      chip.textContent = `time left: ${leftSec}s`;
+    };
+    tick();
+    const intervalId = setInterval(tick, 500);
+    return () => {
+      clearInterval(intervalId);
+      const node = document.getElementById(id);
+      if (node) node.remove();
+    };
+  }
+
+  function setupInactivityBackToMain(view, cb) {
+    const INACTIVITY_MS = 60 * 1000;
+    if (view !== "list" && view !== "menu") return;
+
+    let navigated = false;
+    const cleanupTimeLeft = mountTimeLeft(Date.now(), INACTIVITY_MS);
+    const triggerBack = () => {
+      if (navigated) return;
+      navigated = true;
+      cleanupTimeLeft();
+      syncBackMainToCpee(cb, view);
+      setTimeout(() => {
+        goToIntroLocally(cb);
+      }, 250);
+    };
+
+    const timerId = setTimeout(triggerBack, INACTIVITY_MS);
+
+    window.addEventListener("beforeunload", () => {
+      clearTimeout(timerId);
+      cleanupTimeLeft();
+    }, { once: true });
   }
 
 
@@ -165,9 +261,9 @@
 
   
   function renderDishCards(menuData) { 
-    const $grid = $('<div class="menu-grid"></div>'); // 创建网格容器
+    const $grid = $('<div class="menu-grid"></div>'); 
 
-    if (!menuData || !menuData.items || menuData.items.length === 0) { // 没有菜单或菜单为空
+    if (!menuData || !menuData.items || menuData.items.length === 0) { 
       $grid.append('<div style="grid-column: 1/-1; text-align:center; padding:28px; color: var(--text-muted);">No menu available (maybe weekend or holiday).</div>'); // 插入空状态提示
       return $grid; 
     }
@@ -215,6 +311,13 @@
 
   
   $(function() { 
+    const versionUrl = new URL(window.location.href);
+    if (versionUrl.searchParams.get("v") !== APP_VERSION) {
+      versionUrl.searchParams.set("v", APP_VERSION);
+      window.location.replace(versionUrl.toString());
+      return;
+    }
+
     const params = getParams(); 
     const rawView = (params.view || "intro").toString(); 
     let view = "intro"; 
@@ -229,7 +332,9 @@
     }
 
     const canteen = (params.canteen || "").toString(); 
-    const cb = (window.name || params.cb || "").toString(); 
+    const cbFromContext = (window.name || params.cb || "").toString();
+    const cb = cbFromContext || "https://lehre.bpm.in.tum.de/ports/9002/update";
+    setupInactivityBackToMain(view, cb);
 
     const $stage = $("#stage-container"); 
     const $topTitle = $("#top-title"); 
@@ -238,8 +343,8 @@
     $stage.empty(); 
     $("#msg").hide(); 
 
-    if (!cb) { 
-      showError("No callback received from CPEE. For testing, set it manually via ?cb=<url>."); 
+    if (!cbFromContext) { 
+      console.warn("No callback from CPEE context; fallback callback is used."); 
     }
 
     
@@ -349,6 +454,7 @@
         );
       }
       $heroQrs.append($bottom); 
+      $hero.append($heroQrs);
 
       const $scroll = $('<div class="menu-scroll"></div>'); 
       const $gridWrapper = $('<div></div>'); 
@@ -408,3 +514,4 @@
 </script>
 </body>
 </html>
+
