@@ -74,19 +74,6 @@
     });
   }
 
-  function goToIntroLocally(cb) {
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.set("view", "intro");
-    nextUrl.searchParams.set("v", APP_VERSION);
-    nextUrl.searchParams.delete("canteen");
-    if (cb) {
-      nextUrl.searchParams.set("cb", cb);
-    } else {
-      nextUrl.searchParams.delete("cb");
-    }
-    window.location.href = nextUrl.toString();
-  }
-
   function syncBackMainToCpee(cb, view) {
     if (!cb) return Promise.resolve();
     const backMainCmd = {
@@ -155,9 +142,6 @@
       navigated = true;
       cleanupTimeLeft();
       syncBackMainToCpee(cb, view);
-      setTimeout(() => {
-        goToIntroLocally(cb);
-      }, 250);
     };
 
     const timerId = setTimeout(triggerBack, INACTIVITY_MS);
@@ -311,13 +295,6 @@
 
   
   $(function() { 
-    const versionUrl = new URL(window.location.href);
-    if (versionUrl.searchParams.get("v") !== APP_VERSION) {
-      versionUrl.searchParams.set("v", APP_VERSION);
-      window.location.replace(versionUrl.toString());
-      return;
-    }
-
     const params = getParams(); 
     const rawView = (params.view || "intro").toString(); 
     let view = "intro"; 
@@ -391,22 +368,22 @@
         );
         buildQrChip($qrs, 
           "Mensa Garching",
-          { state: "menu", action: "show-menu", canteen: "garching" },
+          { state: "menu", action: "show-menu-garching", canteen: "garching" },
           cb
         );
         buildQrChip($qrs, 
           "Mensa Arcisstraße",
-          { state: "menu", action: "show-menu", canteen: "arcis" },
+          { state: "menu", action: "show-menu-arcis", canteen: "arcis" },
           cb
         );
          buildQrChip($qrs, 
           "Mensa Leopold",
-          { state: "menu", action: "show-menu", canteen: "leopold" },
+          { state: "menu", action: "show-menu-leopold", canteen: "leopold" },
           cb
         );
         buildQrChip($qrs, 
           "StuBistro Boltzmann",
-          { state: "menu", action: "show-menu", canteen: "Boltzmann" },
+          { state: "menu", action: "show-menu-boltzmann", canteen: "Boltzmann" },
           cb
         );
         buildQrChip($qrs, 
@@ -514,4 +491,3 @@
 </script>
 </body>
 </html>
-
