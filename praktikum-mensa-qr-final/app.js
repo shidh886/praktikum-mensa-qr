@@ -1,4 +1,3 @@
-
 const express = require('express');
 const morgan = require('morgan');
 const { Worker } = require('worker_threads');
@@ -276,6 +275,15 @@ function handleUpdate(req, res) {
 
   let newState   = state || 'intro';
   let newCanteen = canteen || '';
+  const menuEventMatch = /^show-menu-(garching|arcis|leopold|Boltzmann)$/i.exec(event || '');
+  const canteenFromEventRaw = menuEventMatch ? menuEventMatch[1] : '';
+  const canteenFromEventMap = {
+    garching: 'garching',
+    arcis: 'arcis',
+    leopold: 'leopold',
+    boltzmann: 'Boltzmann',
+  };
+  const canteenFromEvent = canteenFromEventMap[(canteenFromEventRaw || '').toLowerCase()] || '';
 
   
   if (event === 'exit') {
@@ -299,6 +307,9 @@ function handleUpdate(req, res) {
     } else if (event === 'show-menu' && canteen) {
       newState   = 'menu';
       newCanteen = canteen;
+    } else if (canteenFromEvent) {
+      newState   = 'menu';
+      newCanteen = canteenFromEvent;
     } else {
       newState   = 'intro';
       newCanteen = '';
